@@ -127,5 +127,3 @@ Can be integrated into Streamlit or other systems for live predictions
 ✅ KNN and XGBoost provided consistent, interpretable results across folds
 
 ---------------
-
-LINK: [https://diabetesdiseaseprediction.streamlit.app/
