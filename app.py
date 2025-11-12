@@ -1,5 +1,5 @@
 # --------------------------------------------------------------------
-# 🩺 Breast Lump Classification App - SQLite Database Version
+# 🩺 Diabetes Prediction App - SQLite Database Version
 # --------------------------------------------------------------------
 
 import streamlit as st
@@ -26,7 +26,7 @@ import os
 # =============================================================================
 # DATABASE SETUP
 # =============================================================================
-DB_FILE = 'patients_database.db'
+DB_FILE = 'diabetes_patients_database.db'
 
 def init_database():
     """Initialize SQLite database with required tables"""
@@ -77,9 +77,9 @@ def init_database():
     # Create default settings if none exist
     c.execute('SELECT COUNT(*) FROM app_settings')
     if c.fetchone()[0] == 0:
-        default_notes = "Schedule biopsy\nFollow up in 2 weeks\nMonitor symptoms"
-        default_eat = "Leafy greens\nFruits\nWhole grains\nLean proteins"
-        default_avoid = "Processed meats\nAlcohol\nSugary foods\nHigh-fat dairy"
+        default_notes = "Monitor blood sugar levels regularly\nFollow up in 3 months\nMaintain healthy diet and exercise"
+        default_eat = "Leafy greens\nWhole grains\nLean proteins\nLegumes\nFruits in moderation"
+        default_avoid = "Sugary beverages\nProcessed foods\nHigh-fat dairy\nExcessive sweets\nRefined carbohydrates"
         
         c.execute('''
             INSERT INTO app_settings (doctor_notes_text, foods_eat_text, foods_avoid_text, created_date)
@@ -265,7 +265,7 @@ def save_app_settings(settings):
 # PAGE CONFIGURATION
 # =============================================================================
 st.set_page_config(
-    page_title="Breast Lump Classifier",
+    page_title="Diabetes Risk Prediction",
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -283,16 +283,14 @@ def initialize_session_state():
         'show_tutorial': True,
         'show_new_patient_form': False,
         'inputs': {
-            'concave points_mean': 0.08, 
-            'radius_worst': 14.5, 
-            'perimeter_mean': 90.0,
-            'area_worst': 900.0, 
-            'area_mean': 500.0, 
-            'radius_mean': 8.5,
-            'perimeter_worst': 95.0, 
-            'concavity_mean': 0.12, 
-            'concavity_worst': 0.18,
-            'concave points_worst': 0.12
+            'pregnancies': 1,
+            'glucose': 120,
+            'blood_pressure': 70,
+            'skin_thickness': 20,
+            'insulin': 80,
+            'bmi': 25.0,
+            'diabetes_pedigree': 0.5,
+            'age': 30
         },
         'current_page': 0,
         'patients_per_page': 20,
@@ -316,17 +314,16 @@ initialize_session_state()
 # =============================================================================
 # PREDICTION LOGIC
 # =============================================================================
-class BreastCancerPredictor:
+class DiabetesPredictor:
     def __init__(self):
         self.features = [
-            'concave points_worst', 'concave points_mean', 'radius_worst',
-            'perimeter_mean', 'area_worst', 'area_mean', 'radius_mean',
-            'perimeter_worst', 'concavity_mean', 'concavity_worst'
+            'pregnancies', 'glucose', 'blood_pressure', 'skin_thickness',
+            'insulin', 'bmi', 'diabetes_pedigree', 'age'
         ]
 
     def predict(self, df, threshold=0.5):
         """
-        Simple rule-based prediction logic for demonstration.
+        Simple rule-based prediction logic for diabetes risk.
         """
         try:
             # Ensure all required features are present
@@ -338,16 +335,18 @@ class BreastCancerPredictor:
             for _, row in df.iterrows():
                 # Simple scoring system based on feature values
                 score = 0
-                if row['radius_worst'] > 15: score += 1
-                if row['concave points_worst'] > 0.1: score += 1
-                if row['area_worst'] > 800: score += 1
-                if row['concavity_worst'] > 0.2: score += 1
-                if row['perimeter_worst'] > 100: score += 1
+                if row['glucose'] > 140: score += 2
+                if row['bmi'] > 30: score += 1.5
+                if row['age'] > 45: score += 1
+                if row['diabetes_pedigree'] > 0.5: score += 1
+                if row['blood_pressure'] > 85: score += 0.5
+                if row['pregnancies'] > 2: score += 0.5
+                if row['insulin'] > 100: score += 0.5
 
-                # Convert score to probability (capped at 0.8 for demonstration)
-                prob_malignant = min(0.8, score * 0.2)
-                prob_benign = 1 - prob_malignant
-                probs.append([prob_benign, prob_malignant])
+                # Convert score to probability (capped at 0.9 for demonstration)
+                prob_diabetes = min(0.9, score * 0.15)
+                prob_normal = 1 - prob_diabetes
+                probs.append([prob_normal, prob_diabetes])
 
             probs = np.array(probs)
             preds = (probs[:, 1] >= threshold).astype(int)
@@ -377,7 +376,7 @@ class BreastCancerPredictor:
             )
 
 # =============================================================================
-# PDF REPORT GENERATION (Same as before)
+# PDF REPORT GENERATION
 # =============================================================================
 def generate_pdf_report(patient_data, prediction_data, input_data, doctor_notes, foods_eat, foods_avoid):
     """Generate a PDF report for the patient analysis."""
@@ -395,7 +394,7 @@ def generate_pdf_report(patient_data, prediction_data, input_data, doctor_notes,
         alignment=1,
         textColor=colors.HexColor('#2E86AB')
     )
-    story.append(Paragraph("BREAST LUMP ANALYSIS REPORT", title_style))
+    story.append(Paragraph("DIABETES RISK ASSESSMENT REPORT", title_style))
     story.append(Spacer(1, 20))
     
     # Patient Information Section
@@ -428,13 +427,13 @@ def generate_pdf_report(patient_data, prediction_data, input_data, doctor_notes,
     story.append(Paragraph("ANALYSIS RESULTS", styles['Heading2']))
     
     preds, probs, risks = prediction_data['pred'], prediction_data['probs'], prediction_data['risks']
-    prediction_label = "Malignant" if preds[0] == 1 else "Benign"
+    prediction_label = "High Diabetes Risk" if preds[0] == 1 else "Low Diabetes Risk"
     risk_level, probability = risks[0][0], probs[0][1]
     
     results_info = [
         ["Prediction:", f"<b>{prediction_label}</b>"],
         ["Risk Level:", f"<b>{risk_level}</b>"],
-        ["Malignant Probability:", f"<b>{probability:.1%}</b>"],
+        ["Diabetes Probability:", f"<b>{probability:.1%}</b>"],
         ["Confidence Score:", f"<b>{max(probs[0])*100:.1f}%</b>"],
         ["Analysis Date:", datetime.now().strftime("%Y-%m-%d %H:%M")]
     ]
@@ -454,9 +453,24 @@ def generate_pdf_report(patient_data, prediction_data, input_data, doctor_notes,
     # Clinical Features Section
     story.append(Paragraph("CLINICAL FEATURES", styles['Heading2']))
     features_data = [["Feature", "Value"]]
+    
+    feature_display_names = {
+        'pregnancies': 'Pregnancies',
+        'glucose': 'Glucose (mg/dL)',
+        'blood_pressure': 'Blood Pressure (mmHg)',
+        'skin_thickness': 'Skin Thickness (mm)',
+        'insulin': 'Insulin (mu U/ml)',
+        'bmi': 'BMI',
+        'diabetes_pedigree': 'Diabetes Pedigree',
+        'age': 'Age'
+    }
+    
     for feature, value in input_data.items():
-        display_name = feature.replace('_', ' ').title()
-        features_data.append([display_name, f"{value:.3f}"])
+        display_name = feature_display_names.get(feature, feature.replace('_', ' ').title())
+        if feature in ['bmi', 'diabetes_pedigree']:
+            features_data.append([display_name, f"{value:.2f}"])
+        else:
+            features_data.append([display_name, f"{value}"])
     
     features_table = Table(features_data, colWidths=[3*inch, 2*inch])
     features_table.setStyle(TableStyle([
@@ -508,10 +522,10 @@ def generate_pdf_report(patient_data, prediction_data, input_data, doctor_notes,
     # Risk Level Explanation
     story.append(Paragraph("RISK LEVEL INTERPRETATION", styles['Heading2']))
     risk_explanation = """
-    <b>Low Risk (0-20%):</b> Routine screening recommended. Maintain healthy lifestyle.<br/>
-    <b>Mild Risk (20-40%):</b> Increased monitoring advised. Follow-up in 3-6 months.<br/>
-    <b>Moderate Risk (40-60%):</b> Further investigation recommended. Consider additional imaging.<br/>
-    <b>High Risk (60-100%):</b> Immediate specialist consultation and biopsy recommended.
+    <b>Low Risk (0-20%):</b> Maintain healthy lifestyle. Annual screening recommended.<br/>
+    <b>Mild Risk (20-40%):</b> Increased monitoring advised. Follow-up in 6 months.<br/>
+    <b>Moderate Risk (40-60%):</b> Further investigation recommended. Consider glucose tolerance test.<br/>
+    <b>High Risk (60-100%):</b> Immediate consultation and comprehensive diabetes screening recommended.
     """
     story.append(Paragraph(risk_explanation, styles['Normal']))
     story.append(Spacer(1, 20))
@@ -554,7 +568,7 @@ def create_download_link(pdf_buffer, filename):
     return href
 
 # =============================================================================
-# UI HELPER FUNCTIONS (Same as before)
+# UI HELPER FUNCTIONS
 # =============================================================================
 def create_risk_gauge(probability):
     """Create a Plotly risk gauge visualization."""
@@ -563,7 +577,7 @@ def create_risk_gauge(probability):
         value=probability * 100,
         domain={'x': [0, 1], 'y': [0, 1]},
         title={
-            'text': "Malignant Probability", 
+            'text': "Diabetes Probability", 
             'font': {'size': 20, 'color': 'darkblue'}
         },
         gauge={
@@ -664,12 +678,20 @@ def create_feature_importance_chart(input_data, probability):
     features = list(input_data.keys())
     values = list(input_data.values())
     
+    # Calculate importance scores based on clinical significance
     scores = []
     for feature, value in input_data.items():
-        if 'worst' in feature and value > np.percentile(list(input_data.values()), 70):
-            scores.append(min(3, (value / max(1, np.max(list(input_data.values()))) * 3)))
+        if feature == 'glucose':
+            score = min(3, (value / 200) * 3)  # Glucose is most important
+        elif feature == 'bmi':
+            score = min(2.5, (value / 50) * 2.5)
+        elif feature == 'age':
+            score = min(2, (value / 100) * 2)
+        elif feature == 'diabetes_pedigree':
+            score = min(2, value * 2)
         else:
-            scores.append(min(2, (value / max(1, np.max(list(input_data.values()))) * 2)))
+            score = min(1.5, (value / max(1, np.max(list(input_data.values()))) * 1.5))
+        scores.append(score)
     
     importance_df = pd.DataFrame({
         'Feature': [f.replace('_', ' ').title() for f in features],
@@ -687,7 +709,7 @@ def create_feature_importance_chart(input_data, probability):
         title='📊 Feature Contribution to Risk Assessment',
         color='Importance',
         color_continuous_scale=['lightgreen', 'yellow', 'orange', 'red'],
-        hover_data={'Value': ':.3f'}
+        hover_data={'Value': ':.2f'}
     )
     
     fig.update_layout(
@@ -706,13 +728,13 @@ def show_tutorial():
     if st.session_state.show_tutorial:
         with st.expander("🎓 Quick Start Guide - Click to Expand", expanded=True):
             st.markdown("""
-            ### Welcome to the Breast Lump Classification App! 🩺
+            ### Welcome to the Diabetes Risk Prediction App! 🩺
 
             **Getting Started:**
             
             1.  **Create a New Patient**: Use the 'New Patient' button
-            2.  **Enter Clinical Data**: Fill in the feature values on the 'Single Prediction' tab
-            3.  **Analyze**: Click 'Analyze Patient' to get the risk assessment
+            2.  **Enter Clinical Data**: Fill in the diabetes risk factors on the 'Single Prediction' tab
+            3.  **Analyze**: Click 'Analyze Patient' to get the diabetes risk assessment
             4.  **Review**: Check the prediction, risk level, and recommendations
             5.  **Customize**: Edit the clinical notes and food recommendations as needed
             6.  **Export**: Download PDF reports for patient records
@@ -778,7 +800,7 @@ def create_new_patient_form(unique_suffix=""):
         
         notes = st.text_area(
             "Medical Notes", 
-            placeholder="Relevant medical history, family history, etc.",
+            placeholder="Relevant medical history, family history of diabetes, etc.",
             help="Additional clinical notes and observations"
         )
         
@@ -951,25 +973,58 @@ def single_prediction_tab(predictor, threshold):
     create_new_patient_form("single_prediction")
     
     if st.session_state.current_patient_id:
-        st.subheader("🔢 Clinical Feature Input")
+        st.subheader("🔢 Diabetes Risk Factor Input")
         
         with st.form("feature_input_form_single", clear_on_submit=False):
-            cols = st.columns(3)
+            cols = st.columns(2)
             input_data = {}
             features = list(st.session_state.inputs.keys())
             
-            for i, feature in enumerate(features):
-                with cols[i % 3]:
-                    display_name = feature.replace('_', ' ').title()
-                    value = st.number_input(
-                        display_name, 
-                        value=float(st.session_state.inputs.get(feature, 0.0)),
-                        key=f"input_{feature}_single", 
-                        step=0.01, 
-                        format="%.3f",
-                        help=f"Enter value for {display_name}"
-                    )
-                    input_data[feature] = value
+            # First column
+            with cols[0]:
+                input_data['pregnancies'] = st.number_input(
+                    "Pregnancies", 
+                    min_value=0, max_value=20, value=int(st.session_state.inputs['pregnancies']),
+                    help="Number of times pregnant"
+                )
+                input_data['glucose'] = st.number_input(
+                    "Glucose (mg/dL)", 
+                    min_value=0, max_value=300, value=int(st.session_state.inputs['glucose']),
+                    help="Plasma glucose concentration"
+                )
+                input_data['blood_pressure'] = st.number_input(
+                    "Blood Pressure (mmHg)", 
+                    min_value=0, max_value=200, value=int(st.session_state.inputs['blood_pressure']),
+                    help="Diastolic blood pressure"
+                )
+                input_data['skin_thickness'] = st.number_input(
+                    "Skin Thickness (mm)", 
+                    min_value=0, max_value=100, value=int(st.session_state.inputs['skin_thickness']),
+                    help="Triceps skin fold thickness"
+                )
+            
+            # Second column
+            with cols[1]:
+                input_data['insulin'] = st.number_input(
+                    "Insulin (mu U/ml)", 
+                    min_value=0, max_value=1000, value=int(st.session_state.inputs['insulin']),
+                    help="2-Hour serum insulin"
+                )
+                input_data['bmi'] = st.number_input(
+                    "BMI", 
+                    min_value=0.0, max_value=70.0, value=float(st.session_state.inputs['bmi']),
+                    step=0.1, help="Body mass index"
+                )
+                input_data['diabetes_pedigree'] = st.number_input(
+                    "Diabetes Pedigree Function", 
+                    min_value=0.0, max_value=2.5, value=float(st.session_state.inputs['diabetes_pedigree']),
+                    step=0.01, help="Diabetes likelihood based on family history"
+                )
+                input_data['age'] = st.number_input(
+                    "Age", 
+                    min_value=0, max_value=120, value=int(st.session_state.inputs['age']),
+                    help="Age in years"
+                )
             
             analyze_button = st.form_submit_button(
                 "🎯 Analyze Patient", 
@@ -981,7 +1036,7 @@ def single_prediction_tab(predictor, threshold):
             st.session_state.inputs.update(input_data)
             input_df = pd.DataFrame([input_data])
             
-            with st.spinner("🔬 Analyzing clinical features..."):
+            with st.spinner("🔬 Analyzing diabetes risk factors..."):
                 preds, probs, risks = predictor.predict(input_df, threshold)
                 
                 st.session_state.single_pred = {
@@ -995,7 +1050,7 @@ def single_prediction_tab(predictor, threshold):
                 prediction_record = {
                     'patient_id': st.session_state.current_patient_id,
                     'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    'prediction': "Malignant" if preds[0] == 1 else "Benign",
+                    'prediction': "High Diabetes Risk" if preds[0] == 1 else "Low Diabetes Risk",
                     'probability': float(probs[0][1] * 100),
                     'risk_level': risks[0][0],
                     'threshold': threshold,
@@ -1006,7 +1061,7 @@ def single_prediction_tab(predictor, threshold):
         if st.session_state.single_pred:
             pred_data = st.session_state.single_pred
             preds, probs, risks = pred_data['pred'], pred_data['probs'], pred_data['risks']
-            prediction_label = "Malignant" if preds[0] == 1 else "Benign"
+            prediction_label = "High Diabetes Risk" if preds[0] == 1 else "Low Diabetes Risk"
             risk_level, probability = risks[0][0], probs[0][1]
             
             # Display prediction result with PDF download button
@@ -1040,7 +1095,7 @@ def single_prediction_tab(predictor, threshold):
                     st.session_state.foods_avoid_text
                 )
                 
-                filename = f"Breast_Analysis_Report_{patient_data['name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+                filename = f"Diabetes_Risk_Report_{patient_data['name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
                 st.markdown(create_download_link(pdf_buffer, filename), unsafe_allow_html=True)
 
             # Risk visualization section
@@ -1112,34 +1167,38 @@ def single_prediction_tab(predictor, threshold):
             if risk_level == "High Risk":
                 st.warning("""
                 **Immediate Actions Recommended:**
-                - Schedule urgent biopsy
-                - Consult with oncology specialist
-                - Consider advanced imaging (MRI)
-                - Discuss treatment options
+                - Schedule comprehensive diabetes screening
+                - Consult with endocrinology specialist
+                - Begin lifestyle modifications immediately
+                - Consider medication evaluation
+                - Monitor blood glucose regularly
                 """)
             elif risk_level == "Moderate Risk":
                 st.info("""
                 **Follow-up Actions:**
-                - Schedule follow-up in 2-4 weeks
-                - Consider ultrasound
-                - Monitor for changes
-                - Discuss risk factors
+                - Schedule follow-up in 3 months
+                - Consider oral glucose tolerance test
+                - Implement dietary changes
+                - Increase physical activity
+                - Monitor weight and blood pressure
                 """)
             elif risk_level == "Mild Risk":
                 st.info("""
                 **Monitoring Recommendations:**
-                - Regular self-exams
-                - Follow-up in 3-6 months
-                - Maintain healthy lifestyle
-                - Annual screening
+                - Annual diabetes screening
+                - Maintain healthy diet
+                - Regular exercise routine
+                - Weight management
+                - Blood pressure monitoring
                 """)
             else:
                 st.success("""
-                **Routine Care:**
-                - Continue regular screenings
-                - Maintain healthy habits
-                - Annual clinical exams
-                - Self-awareness of changes
+                **Preventive Care:**
+                - Continue healthy lifestyle habits
+                - Annual health check-ups
+                - Balanced nutrition
+                - Regular physical activity
+                - Maintain optimal weight
                 """)
                 
             # Refresh PDF button
@@ -1155,7 +1214,7 @@ def single_prediction_tab(predictor, threshold):
                     st.session_state.foods_avoid_text
                 )
                 
-                filename = f"Breast_Analysis_Report_{patient_data['name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+                filename = f"Diabetes_Risk_Report_{patient_data['name'].replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
                 st.markdown(create_download_link(pdf_buffer, filename), unsafe_allow_html=True)
                 st.success("PDF report updated with latest notes!")
     else:
@@ -1167,7 +1226,7 @@ def batch_prediction_tab(predictor, threshold):
     
     st.info(
         "Upload a CSV or Excel file with patient data. "
-        "The file must contain columns matching the required clinical features."
+        "The file must contain columns for all diabetes risk factors."
     )
     
     uploaded_file = st.file_uploader(
@@ -1198,10 +1257,10 @@ def batch_prediction_tab(predictor, threshold):
                     
                     results_df = df.copy()
                     results_df['Prediction'] = [
-                        'Malignant' if p == 1 else 'Benign' for p in preds
+                        'High Diabetes Risk' if p == 1 else 'Low Diabetes Risk' for p in preds
                     ]
                     results_df['Risk_Level'] = [r[0] for r in risks]
-                    results_df['Probability_Malignant'] = [p[1] * 100 for p in probs]
+                    results_df['Probability_Diabetes'] = [p[1] * 100 for p in probs]
                     
                     st.session_state.batch_pred = {'df': results_df}
 
@@ -1217,10 +1276,10 @@ def batch_prediction_tab(predictor, threshold):
         with col1:
             st.metric("Total Patients", len(results_df))
         with col2:
-            benign_count = (results_df['Prediction'] == 'Benign').sum()
-            st.metric("Benign Cases", benign_count)
+            low_risk_count = (results_df['Prediction'] == 'Low Diabetes Risk').sum()
+            st.metric("Low Risk Cases", low_risk_count)
         with col3:
-            st.metric("Malignant Cases", len(results_df) - benign_count)
+            st.metric("High Risk Cases", len(results_df) - low_risk_count)
         with col4:
             high_risk_count = (results_df['Risk_Level'] == 'High Risk').sum()
             st.metric("High Risk Cases", high_risk_count)
@@ -1354,13 +1413,13 @@ def about_tab():
     st.header("ℹ️ About This Application")
     
     st.markdown("""
-    ## Breast Lump Classification App 🩺
+    ## Diabetes Risk Prediction App 🩺
 
     This application is a demonstration tool designed to assist healthcare professionals 
-    in analyzing breast lump characteristics and assessing cancer risk based on clinical features.
+    in analyzing diabetes risk factors and assessing diabetes probability based on clinical features.
 
     ### 🎯 Purpose
-    - Provide a simulated risk assessment for breast lumps based on clinical measurements
+    - Provide a simulated risk assessment for diabetes based on clinical measurements
     - Support clinical decision-making with illustrative recommendations  
     - Maintain a robust system for patient records and prediction history
     - Generate comprehensive PDF reports for patient documentation
@@ -1389,9 +1448,9 @@ def about_tab():
 def main():
     """Main application function to run the Streamlit app."""
     
-    st.title("🩺 Breast Lump Classification System")
+    st.title("🩺 Diabetes Risk Prediction System")
     st.markdown(
-        "Analyze clinical features to assess breast cancer risk and support clinical decision-making."
+        "Analyze clinical features to assess diabetes risk and support clinical decision-making."
     )
     
     show_tutorial()
@@ -1405,7 +1464,7 @@ def main():
             max_value=1.0, 
             value=0.5, 
             step=0.05,
-            help="Adjust the sensitivity for malignant classification. Higher values are more strict.",
+            help="Adjust the sensitivity for high risk classification. Higher values are more strict.",
             key="classification_threshold"
         )
         
@@ -1479,9 +1538,9 @@ def main():
     ])
     
     with tab1:
-        single_prediction_tab(BreastCancerPredictor(), threshold)
+        single_prediction_tab(DiabetesPredictor(), threshold)
     with tab2:
-        batch_prediction_tab(BreastCancerPredictor(), threshold)
+        batch_prediction_tab(DiabetesPredictor(), threshold)
     with tab3:
         patient_history_tab()
     with tab4:
