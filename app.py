@@ -539,8 +539,8 @@ def generate_pdf_report(patient_data, prediction_data, input_data, doctor_notes,
         alignment=1
     )
     disclaimer = """
-    <i>This report is generated for educational and demonstration purposes only. 
-    This is not a medical diagnosis. All clinical decisions should be made by qualified healthcare professionals. 
+    <i>This report is generated for educational and demonstration purposes and to assist the doctor in making diagnosis faster. 
+    All clinical decisions should be made by qualified healthcare professionals. 
     Consult with your healthcare provider for proper medical advice and treatment.</i>
     """
     story.append(Paragraph(disclaimer, disclaimer_style))
